@@ -271,6 +271,22 @@ def get_whatsapp_credentials(client_id: str) -> dict:
         print(f"❌ Error en get_whatsapp_credentials: {e}")
         raise
 
+
+async def get_client_whatsapp_config(client_id: str):
+    try:
+        res = supabase.table("channels") \
+            .select("phone, wa_phone_id, wa_token") \
+            .eq("client_id", client_id) \
+            .eq("type", "whatsapp") \
+            .maybe_single() \
+            .execute()
+
+        return res.data
+    except Exception as e:
+        print(f"❌ Failed to fetch WhatsApp config for client {client_id}: {e}")
+        return None
+
+
 # -------------------------------
 # PLAN STRIPE
 # -------------------------------
@@ -286,7 +302,7 @@ async def update_client_plan_by_id(client_id: str, new_plan_id: str, subscriptio
 
             try:
                 subscription = stripe.Subscription.retrieve(subscription_id)
-                print("🧾 Subscription object from Stripe:", subscription)
+                print("🧾 Subscription Stripe ID:", subscription.id)
 
                 item = subscription["items"]["data"][0]
                 update_payload["subscription_start"] = datetime.utcfromtimestamp(item["current_period_start"]).isoformat()
@@ -301,7 +317,8 @@ async def update_client_plan_by_id(client_id: str, new_plan_id: str, subscriptio
             except Exception as e:
                 print(f"⚠️ No se pudieron obtener fechas de Stripe: {e}")
 
-        print("📦 Payload final que se mandará a Supabase:", update_payload)
+        print(f"📦 Payload con plan_id='{new_plan_id}' y subscription_id='{subscription_id}' listo para enviar a Supabase")
+
 
         response = supabase.table("client_settings")\
             .update(update_payload)\
@@ -332,3 +349,6 @@ async def get_client_id_by_subscription_id(subscription_id: str) -> str | None:
     except Exception as e:
         print(f"❌ Error buscando client_id por subscription_id: {e}")
         return None
+
+
+

@@ -15,6 +15,7 @@ export default function WhatsAppSetup() {
   const [touched, setTouched] = useState({ phone: false, waPhoneId: false, waToken: false });
   const [session, setSession] = useState(null);
   const [status, setStatus] = useState({ message: "", type: "" });
+  const [isLocked, setIsLocked] = useState(false);
   const clientId = useClientId();
 
   useEffect(() => {
@@ -23,23 +24,26 @@ export default function WhatsAppSetup() {
       setSession(session);
     };
 
-    const fetchExisting = async () => {
-      const { data } = await supabase
-        .from("channels")
-        .select("phone, wa_phone_id, wa_token")
-        .eq("client_id", clientId)
-        .eq("type", "whatsapp")
-        .maybeSingle();
+    const fetchConfig = async () => {
+      try {
+        const res = await axios.get(`${import.meta.env.VITE_API_URL}/get_whatsapp_config`, {
+          params: { client_id: clientId },
+        });
 
-      if (data) {
-        setPhone(data.phone || "");
-        setWaPhoneId(data.wa_phone_id || "");
-        setWaToken(data.wa_token || "");
+        const { phone, wa_phone_id, wa_token } = res.data || {};
+        if (phone && wa_phone_id && wa_token) {
+          setPhone(phone);
+          setWaPhoneId(wa_phone_id);
+          setWaToken(wa_token);
+          setIsLocked(true);
+        }
+      } catch (err) {
+        console.log("ℹ️ No config found or failed to fetch:", err);
       }
     };
 
     fetchSession();
-    fetchExisting();
+    fetchConfig();
   }, [clientId]);
 
   const handleSubmit = async () => {
@@ -57,6 +61,7 @@ export default function WhatsAppSetup() {
     try {
       await axios.post(`${import.meta.env.VITE_API_URL}/link_whatsapp`, payload);
       setStatus({ message: "✅ Number successfully linked!", type: "success" });
+      setIsLocked(true);
     } catch (err) {
       console.error(err);
       setStatus({ message: "❌ Error linking number. Check your credentials.", type: "error" });
@@ -75,8 +80,16 @@ export default function WhatsAppSetup() {
   return (
     <div style={pageStyle}>
       <div style={cardStyle}>
-        <h2 style={titleStyle}>💬 Configure WhatsApp Assistant</h2>
+        <div style={headerStyle}>
+          <h2 style={titleStyle}>💬 Configure WhatsApp Assistant</h2>
+          {isLocked && (
+            <button onClick={() => setIsLocked(false)} style={editIconStyle} title="Edit">
+              ✏️
+            </button>
+          )}
+        </div>
 
+        {/* 📞 WhatsApp Number */}
         <div style={fieldGroup}>
           <label style={labelStyle}>WhatsApp number (verified by Meta)</label>
           <input
@@ -85,12 +98,14 @@ export default function WhatsAppSetup() {
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             onBlur={() => setTouched((prev) => ({ ...prev, phone: true }))}
+            disabled={isLocked}
             style={inputStyle}
           />
           {showError("phone", phone)}
           <p style={helperStyle}>This is the number your assistant will use to receive and reply to messages.</p>
         </div>
 
+        {/* 📱 Meta phone_number_id */}
         <div style={fieldGroup}>
           <label style={labelStyle}>Meta phone_number_id</label>
           <input
@@ -99,12 +114,14 @@ export default function WhatsAppSetup() {
             value={waPhoneId}
             onChange={(e) => setWaPhoneId(e.target.value)}
             onBlur={() => setTouched((prev) => ({ ...prev, waPhoneId: true }))}
+            disabled={isLocked}
             style={inputStyle}
           />
           {showError("waPhoneId", waPhoneId)}
           <p style={helperStyle}>You’ll find this ID in your WhatsApp Business Cloud settings.</p>
         </div>
 
+        {/* 🔐 Meta Access Token */}
         <div style={fieldGroup}>
           <label style={labelStyle}>Meta access_token</label>
           <input
@@ -113,23 +130,26 @@ export default function WhatsAppSetup() {
             value={waToken}
             onChange={(e) => setWaToken(e.target.value)}
             onBlur={() => setTouched((prev) => ({ ...prev, waToken: true }))}
+            disabled={isLocked}
             style={inputStyle}
           />
           {showError("waToken", waToken)}
           <p style={helperStyle}>Paste the access token generated in your Meta Developer dashboard.</p>
         </div>
 
-        <button
-          onClick={handleSubmit}
-          disabled={!isValidPhone(phone) || !isValidPhoneId(waPhoneId) || !isValidToken(waToken)}
-          style={{
-            ...btnStyle,
-            opacity: isValidPhone(phone) && isValidPhoneId(waPhoneId) && isValidToken(waToken) ? 1 : 0.5,
-            cursor: isValidPhone(phone) && isValidPhoneId(waPhoneId) && isValidToken(waToken) ? "pointer" : "not-allowed",
-          }}
-        >
-          📲 Link number
-        </button>
+        {!isLocked && (
+          <button
+            onClick={handleSubmit}
+            disabled={!isValidPhone(phone) || !isValidPhoneId(waPhoneId) || !isValidToken(waToken)}
+            style={{
+              ...btnStyle,
+              opacity: isValidPhone(phone) && isValidPhoneId(waPhoneId) && isValidToken(waToken) ? 1 : 0.5,
+              cursor: isValidPhone(phone) && isValidPhoneId(waPhoneId) && isValidToken(waToken) ? "pointer" : "not-allowed",
+            }}
+          >
+            📲 Link number
+          </button>
+        )}
 
         {status.message && (
           <p style={{
@@ -145,7 +165,6 @@ export default function WhatsAppSetup() {
   );
 }
 
-// 🎨 Estilos
 const pageStyle = {
   padding: "2rem",
   fontFamily: "system-ui, sans-serif",
@@ -170,7 +189,7 @@ const titleStyle = {
   fontSize: "1.8rem",
   fontWeight: "bold",
   color: "#f5a623",
-  marginBottom: "2rem",
+  margin: 0,
 };
 
 const labelStyle = {
@@ -214,4 +233,19 @@ const btnStyle = {
   fontWeight: "bold",
   border: "none",
   cursor: "pointer",
+};
+
+const headerStyle = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  marginBottom: "2rem",
+};
+
+const editIconStyle = {
+  background: "none",
+  border: "none",
+  fontSize: "1.2rem",
+  cursor: "pointer",
+  color: "#f5a623",
 };

@@ -7,7 +7,6 @@ from api.modules.assistant_rag.supabase_client import supabase
 from api.utils.stripe_plan_utils import cancel_subscription_immediately_if_exists
 
 load_dotenv()
-print("🔍 STRIPE_SECRET_KEY:", os.getenv("STRIPE_SECRET_KEY"))
 router = APIRouter()
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 
