@@ -69,7 +69,14 @@ async def stripe_webhook(request: Request):
         elif event["type"] == "customer.subscription.deleted":
             subscription = event["data"]["object"]
             subscription_id = subscription.get("id")
-            print(f"🧹 Suscripción eliminada: {subscription_id}")
+            status_stripe = subscription.get("status")
+
+            print(f"🧹 Suscripción eliminada: {subscription_id} (estado: {status_stripe})")
+
+            # 🛡️ Ignorar si la suscripción nunca estuvo activa
+            if status_stripe in ["incomplete", "incomplete_expired", "canceled"]:
+                print(f"⏩ Ignorando suscripción cancelada sin activación real: {subscription_id}")
+                return {"status": "skipped"}
 
             client_id = await get_client_id_by_subscription_id(subscription_id)
             if client_id:
@@ -82,7 +89,7 @@ async def stripe_webhook(request: Request):
             print(f"ℹ️ Evento no manejado: {event['type']}")
 
     except Exception as e:
-        print(f"❌ Error en procesamiento del evento {event['type']}: {e}")
+        print(f"❌ Error en procesamiento del evento {event.get('type', 'unknown')}: {e}")
 
     return {"status": "ok"}
 

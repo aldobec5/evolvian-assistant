@@ -240,6 +240,7 @@ es: {
   plan_white_label: "White Label",
   i_want_this_plan: "Quiero este plan",
   contact_for_whitelabel: "Si requieres un plan a tu medida contacta",
+  downgrade_to_starter: "Bajar al plan starter",
 
 },
 
@@ -467,6 +468,7 @@ en: {
   plan_white_label: "White Label",
   i_want_this_plan: "I want this plan",
   contact_for_whitelabel: "Contact for Whitelabel plan",
+  downgrade_to_starter: "Downgrade to starter plan",
 }
 
   

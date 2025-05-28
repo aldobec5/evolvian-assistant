@@ -2,6 +2,7 @@ from fastapi import APIRouter, Request, HTTPException
 from fastapi.responses import JSONResponse
 import os
 from dotenv import load_dotenv
+from datetime import datetime
 from api.config.config import supabase
 from api.utils.stripe_plan_utils import modify_subscription_plan, cancel_subscription_at_period_end
 
@@ -54,12 +55,12 @@ async def change_plan(request: Request):
             print("⏳ Downgrade a FREE: cancelación al final del ciclo")
             cancel_subscription_at_period_end(subscription_id)
 
-            # 🔄 Reflejar cambio en base de datos inmediatamente
             supabase.table("client_settings").update({
                 "plan_id": "free",
                 "subscription_id": None,
                 "subscription_start": None,
                 "subscription_end": None,
+                "cancellation_requested_at": datetime.utcnow().isoformat()
             }).eq("client_id", client_id).execute()
 
             return JSONResponse({"status": "scheduled_cancel", "message": "Suscripción cancelada y plan actualizado a Free"})
@@ -71,6 +72,11 @@ async def change_plan(request: Request):
 
         print(f"🧠 Cambio detectado: {'upgrade' if is_upgrade else 'downgrade'} ➜ ejecutando modificación...")
         modify_subscription_plan(subscription_id, price_id)
+
+        supabase.table("client_settings").update({
+            "plan_id": new_plan_id,
+            "cancellation_requested_at": None  # ✅ limpiamos si antes había cancelado
+        }).eq("client_id", client_id).execute()
 
         return JSONResponse({"status": "ok", "message": f"Suscripción actualizada a {new_plan_id}"})
 
