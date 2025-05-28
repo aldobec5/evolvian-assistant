@@ -39,3 +39,4 @@ build/
 *.bak
 *.tmp
 coverage/
+main_local.py
